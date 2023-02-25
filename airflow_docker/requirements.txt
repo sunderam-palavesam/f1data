@@ -1,0 +1,2 @@
+apache-airflow-providers-mysql==4.0.1
+fastf1==2.3.0
