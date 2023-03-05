@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine
+from sqlalchemy import text
 import pandas as pd
 import fastf1 as f1
 
@@ -38,11 +39,13 @@ def load_session_data(event_year):
                 and EventYear = ' + str(my_event_year) + ';'
     
     event_data = my_conn.execute(sql_select).fetchall()
+
     #load a session and its  data
     for event in event_data:
         print(event['EventYear'])
         print(event['EventName'])
         print(event['EventDWKey'])
+        eventdwkey=event['EventDWKey']
 
         sql_exec = 'call drop_stg_tables() '    
         my_conn.execute(sql_exec)  
@@ -51,55 +54,58 @@ def load_session_data(event_year):
         race = f1.get_session(event['EventYear'], event['EventName'], 'R')
         race.load()
         race_data = pd.DataFrame(race.results).astype(str)
-        race_data['EventDWKey'] = event['EventDWKey']
+        race_data['EventDWKey'] = eventdwkey
         race_data.to_sql(con=my_conn,name='stg_race_data',if_exists='append',index=False)
 
         #load weather data
         #print(race.weather_data)
         weather_data = pd.DataFrame(race.weather_data).astype(str)
-        weather_data['EventDWKey'] = event['EventDWKey']
-        #weather_data.to_sql(con=my_conn,name='stg_weather_data',if_exists='append',index=False)
+        weather_data['EventDWKey'] = eventdwkey
+        weather_data.to_sql(con=my_conn,name='stg_weather_data',if_exists='append',index=False)
 
         #load lap data
         #print(race.laps)         
         lap_data = pd.DataFrame(race.laps).astype(str)
-        lap_data['EventDWKey'] = event['EventDWKey']
+        lap_data['EventDWKey'] = eventdwkey
         lap_data.to_sql(con=my_conn,name='stg_lap_data',if_exists='append',index=False)
 
         #load race control messages
         #print(race.race_control_messages)
         #control_messages = race.race_control_messages
-        #control_messages['EventDWKey'] = event['EventDWKey']
+        #control_messages['EventDWKey'] = eventdwkey
         #control_messages.to_sql(con=my_conn,name='stg_control_messages',if_exists='append',index=False)
 
         #load car data
         #print(race.car_data)
-        """
+
         car_data = race.car_data    
         for driver in car_data.keys():        
             car_data_df = pd.DataFrame(car_data[driver]).astype(str)
             car_data_df['Driver'] = driver
-            car_data_df['EventDWKey'] = event['EventDWKey']
+            car_data_df['EventDWKey'] = eventdwkey
             car_data_df.to_sql(con=my_conn,name='stg_car_data',if_exists='append',index=False)
 
+        """
         #load position data
         #print(race.pos_data)
         pos_data = race.pos_data    
         for driver in pos_data.keys():
             pos_data_df = pd.DataFrame(pos_data[driver]).astype(str)
             pos_data_df['Driver'] = driver
-            pos_data_df['EventDWKey'] = event['EventDWKey']
+            pos_data_df['EventDWKey'] = eventdwkey
             pos_data_df.to_sql(con=my_conn,name='stg_pos_data',if_exists='append',index=False)
 
 
         sql_update = 'UPDATE f1data.event_schedule SET EventDWLoad = "Y" \
-                    WHERE EventDWKey = "' + event['EventDWKey'] + '";'
+                    WHERE EventDWKey = "' + eventdwkey + '";'
 
         my_conn.execute(sql_update)
         """
+        
         connection = my_conn.engine.raw_connection()        
         cursor_obj = connection.cursor()
-        cursor_obj.callproc("f1data.load_f1_tables", [" + event['EventDWKey'] + "])
+        args= [eventdwkey]
+        cursor_obj.callproc('load_f1_tables', args)
         cursor_obj.close()
         connection.commit()
 
